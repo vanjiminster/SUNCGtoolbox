@@ -7,9 +7,12 @@
 ////////////////////////////////////////////////////////////////////////
 
 #include "R3Graphics.h"
-
-
-
+#include <iostream>
+#include <fstream>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -365,9 +368,9 @@ void R3SceneNode::
 RemoveChild(R3SceneNode *node) 
 {
   // Remove node from children
-  assert(node->parent == this);
+  //assert(node->parent == this);
   RNArrayEntry *entry = children.KthEntry(node->parent_index);
-  assert(children.EntryContents(entry) == node);
+  //assert(children.EntryContents(entry) == node);
   R3SceneNode *tail = children.Tail();
   children.EntryContents(entry) = tail;
   tail->parent_index = node->parent_index;
@@ -760,6 +763,18 @@ UpdateBBox(void)
     R3SceneReference *reference = references.Kth(i);
     R3Scene *referenced_scene = reference->ReferencedScene();
     if (!referenced_scene) continue;
+    
+    int nullfd = open("/dev/random", O_WRONLY);
+
+    if (write(nullfd, referenced_scene->Root(), 8) < 0)
+    {
+        printf("SEGFAULT!!!\n");
+        close(nullfd);
+        continue;
+    }
+    close(nullfd);
+
+    
     R3Box reference_bbox = referenced_scene->BBox();
     reference_bbox.Transform(transformation);
     bbox.Union(reference_bbox);

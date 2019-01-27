@@ -591,7 +591,7 @@ void GLUTMouse(int button, int state, int x, int y)
         selected_node = NULL;;
 #if 1
         if (Pick(scene, x, y, &selected_node, &position)) {
-          printf("Selected %s    %g %g %g\n", (selected_node->Name()) ? selected_node->Name() : "NoName",
+            printf("Selected %s    %g %g %g\n", (selected_node->Name()) ? selected_node->Name() : "NoName",
             position.X(), position.Y(), position.Z());
         }
 #else
@@ -766,6 +766,61 @@ void GLUTKeyboard(unsigned char key, int x, int y)
            camera.Towards().X(), camera.Towards().Y(), camera.Towards().Z(),
            camera.Up().X(), camera.Up().Y(), camera.Up().Z(),
            camera.XFOV(), camera.YFOV());
+    
+    char filename1[50];
+    sprintf(filename1, "obs/cam_%s", selected_node->Name());
+    FILE *fp1 = fopen(filename1, "a");
+    if (!fp1) {
+      printf("Unable to open cameras file %s\n", filename1);
+    }
+    else {
+      R3Point eye = camera.Origin();
+      R3Vector towards = camera.Towards();
+      R3Vector up = camera.Up();
+      fprintf(fp1, "%g %g %g  %g %g %g  %g %g %g  %g %g  %g\n",
+      eye.X(), eye.Y(), eye.Z(),
+      towards.X(), towards.Y(), towards.Z(),
+      up.X(), up.Y(), up.Z(),
+      camera.XFOV(), camera.YFOV(),
+      camera.Value());
+      fclose(fp1);
+    }
+    
+    
+    printf("Saving observation of %s\n", selected_node->Name());
+    const R3CoordSystem& cs = camera.CoordSystem();
+    R4Matrix matrix = cs.Matrix();
+    printf("Extrinsics: %g %g %g %g   %g %g %g %g  %g %g %g %g\n",
+      matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3], 
+      matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3], 
+      matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3]);
+    
+    int width = 640;
+    int height = 480;
+    RNScalar cx = 0.5 * width;
+    RNScalar cy = 0.5 * height;
+    RNScalar fx = 0.5 * width / tan(camera.XFOV());
+    RNScalar fy = 0.5 * height / tan(camera.YFOV());
+    printf("Intrinsics: %g 0 %g   0 %g %g  0 0 1\n", fx, cx, fy, cy);
+    
+    char filename[50];
+    sprintf(filename, "obs/extr_%s", selected_node->Name());
+    FILE *fp = fopen(filename, "a");
+    if (!fp) {
+      printf("Unable to open observations file %s\n", filename);
+    }
+    else {
+      //printf("Writing to file %s", filename);
+      fprintf(fp, "%g %g %g %g   %g %g %g %g  %g %g %g %g\n",
+        matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3], 
+        matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3], 
+        matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3]);
+      fprintf(fp, "%g 0 %g   0 %g %g  0 0 1\n", fx, cx, fy, cy);
+      fclose(fp);
+    }
+    
+    
+    
     break; }
     
   case 27: // ESCAPE

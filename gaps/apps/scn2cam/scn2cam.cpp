@@ -919,18 +919,21 @@ ComputeViewpointMask(R3SceneNode *room_node, R2Grid& mask)
   // Get/check room, wall, floor, and ceiling nodes 
   if (!room_node) return 0;
   if (!room_node->Name()) return 0;
-  if (strncmp(room_node->Name(), "Room#", 5)) return 0;
+  
+  if (strncmp(room_node->Name(), "Room#", 5) != 0) return 0;
   if (room_node->NChildren() < 3) return 0;
   R3SceneNode *floor_node = room_node->Child(0);
   if (!floor_node->Name()) return 0;
-  if (strncmp(floor_node->Name(), "Floor#", 6)) return 0;
+  if (strncmp(floor_node->Name(), "Floor#", 6) != 0) return 0;
   R3SceneNode *ceiling_node = room_node->Child(1);
   if (!ceiling_node->Name()) return 0;
-  if (strncmp(ceiling_node->Name(), "Ceiling#", 8)) return 0;
+  if (strncmp(ceiling_node->Name(), "Ceiling#", 8) != 0) return 0;
   R3SceneNode *wall_node = room_node->Child(2);
   if (!wall_node->Name()) return 0;
-  if (strncmp(wall_node->Name(), "Wall#", 5)) return 0;
-
+  if (strncmp(wall_node->Name(), "Wall#", 5) != 0) return 0;
+  printf("I want to print the room NAME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+  printf("%s\n", room_node->Name());
+  printf("ALRIGHTY THEN !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
   // Get bounding boxes in world coordinates
   R3Box room_bbox = room_node->BBox();
   R3Box floor_bbox = floor_node->BBox();
@@ -1132,6 +1135,7 @@ CreateRoomCameras(void)
 
     // Compute viewpoint mask
     R2Grid viewpoint_mask;
+
     if (!ComputeViewpointMask(room_node, viewpoint_mask)) continue;
 
     // Sample directions
