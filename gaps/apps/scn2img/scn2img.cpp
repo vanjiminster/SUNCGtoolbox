@@ -507,11 +507,14 @@ CaptureDepth(R2Grid& image)
 static void 
 DrawNodeWithOpenGL(const R3Camera& camera, R3Scene *scene, R3SceneNode *node, int color_scheme, RNBoolean omit_objects = FALSE)
 {
+  //printf("Recursion reached %s with index %d\n", node->Name(), node->SceneIndex() + 1);
+  
   // Check if should omit object
   if (omit_objects && node->Name() && !strncmp(node->Name(), "Object#", 7)) return;
 
   // Check if has elements and/or references
   if (node->NChildren() > 0) {
+    //printf(" Has children\n");
     // Recurse to children
     for (int i = 0; i < node->NChildren(); i++) {
       R3SceneNode *child = node->Child(i);
@@ -519,6 +522,8 @@ DrawNodeWithOpenGL(const R3Camera& camera, R3Scene *scene, R3SceneNode *node, in
     }
   }
   else {
+    //printf(" Reached leaf\n");
+    //printf(" Parent is %s\n", node->Parent()->Name());
     // Check color scheme
     if ((color_scheme == RGB_COLOR_SCHEME) || (color_scheme == ALBEDO_COLOR_SCHEME)) {
       // Load lights for node
@@ -535,7 +540,9 @@ DrawNodeWithOpenGL(const R3Camera& camera, R3Scene *scene, R3SceneNode *node, in
     else if ((color_scheme == NODE_COLOR_SCHEME) || (color_scheme == CATEGORY_COLOR_SCHEME) || (color_scheme == ROOM_SURFACE_COLOR_SCHEME)) {
       // Draw integer values per node
       if (color_scheme == NODE_COLOR_SCHEME) {
-        LoadInteger(node->SceneIndex() + 1);
+        //printf("Drawing for node %s\n", node->Name());
+        //LoadInteger(node->SceneIndex() + 1);
+        LoadInteger(node->Parent()->SceneIndex() + 1);
       }
       else if (color_scheme == CATEGORY_COLOR_SCHEME) {
         const char *model_index = NULL;
@@ -877,6 +884,7 @@ void Redraw(void)
       image.Clear(0);
       if (CaptureInteger(image)) {
         char output_image_filename[1024];
+        printf("Location 1\n");
         sprintf(output_image_filename, "%s/%s_node.png", output_image_directory, name);
         image.WriteFile(output_image_filename);
       }
@@ -1306,6 +1314,7 @@ RenderImagesWithRaycasting(const R3Camera& camera, R3Scene *scene, const char *o
   }
   if (capture_node_images) {
     sprintf(output_image_filename, "%s/%06d_node.png", output_image_directory, image_index);
+    printf("Location 2\n");
     node_image.WriteFile(output_image_filename);
   }
   if (capture_category_images) {
@@ -1441,18 +1450,18 @@ ParseArgs(int argc, char **argv)
   // Set default capture options
   if (!capture_images) {
     capture_color_images = 1;
-    capture_depth_images = 1;
-    capture_kinect_images = 1;
-    capture_normal_images = 1;
-    capture_ndotv_images = 1;
-    capture_albedo_images = 1;
-    capture_brdf_images = 1;
-    capture_material_images = 1;
+    capture_depth_images = 0;
+    capture_kinect_images = 0;
+    capture_normal_images = 0;
+    capture_ndotv_images = 0;
+    capture_albedo_images = 0;
+    capture_brdf_images = 0;
+    capture_material_images = 0;
     capture_node_images = 1;
-    capture_category_images = 1;
-    capture_boundary_images = 1;
-    capture_room_surface_images = 1;
-    capture_room_boundary_images = 1;
+    capture_category_images = 0;
+    capture_boundary_images = 0;
+    capture_room_surface_images = 0;
+    capture_room_boundary_images = 0;
   }
 
   // Check filenames
@@ -1478,7 +1487,15 @@ int main(int argc, char **argv)
 
   // Read scene
   if (!ReadScene(input_scene_name)) exit(-1);
-
+  
+  /*for (int i = 0; i < scene->NNodes(); i++) {
+    R3SceneNode *node = scene->Node(i);
+    const char *name = (node->Name()) ? node->Name() : "-";
+    printf("Writing %d %s\n", i+1, name);
+  }
+  
+  return 0;*/
+  
   // Read cameras 
   if (!ReadCameras(input_cameras_name)) exit(-1);
 

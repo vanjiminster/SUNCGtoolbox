@@ -45,6 +45,7 @@ static int GLUTmodifiers = 0;
 static R3Scene *scene = NULL;
 static R3Viewer *viewer = NULL;
 static R3SceneNode *selected_node = NULL;
+static int selected_node_index = -1;
 static RNArray<R3Camera *> *cameras = NULL;
 static int selected_camera_index = -1;
 static R3Point center(0, 0, 0);
@@ -276,7 +277,7 @@ DrawRays(R3Scene *scene)
 
 static int
 Pick(R3Scene *scene, int x, int y,
-  R3SceneNode **hit_node = NULL, R3Point *hit_position = NULL)
+  R3SceneNode **hit_node = NULL, int* hit_node_index = NULL, R3Point *hit_position = NULL)
 {
   // Clear window
   glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -289,10 +290,11 @@ Pick(R3Scene *scene, int x, int y,
   int pick_tolerance = 10;
   glPointSize(pick_tolerance);
   glDisable(GL_LIGHTING);
-
+    
   // Draw leaf nodes with color indicating node index
   for (int i = 0; i < scene->NNodes(); i++) {
     R3SceneNode *node = scene->Node(i);
+    //printf("Processing %s\n", scene->Node(i)->Name());
     if (node->NChildren() > 0) continue;
     R3Affine parent_transformation = node->CumulativeParentTransformation();
     parent_transformation.Push();
@@ -328,6 +330,7 @@ Pick(R3Scene *scene, int x, int y,
   // Return hit node
   if (hit_node) {
    *hit_node = scene->Node(node_index);
+   *hit_node_index = node_index + 1;
   }
 
   // Return hit position
@@ -580,7 +583,7 @@ void GLUTMouse(int button, int state, int x, int y)
       if (double_click) {
         // Set viewing center point 
         R3Point intersection_point;
-        if (Pick(scene, x, y, NULL, &intersection_point)) {
+        if (Pick(scene, x, y, NULL, NULL, &intersection_point)) {
           center = intersection_point;
         }
       }
@@ -590,8 +593,13 @@ void GLUTMouse(int button, int state, int x, int y)
         R3Vector normal;
         selected_node = NULL;;
 #if 1
-        if (Pick(scene, x, y, &selected_node, &position)) {
-            printf("Selected %s    %g %g %g\n", (selected_node->Name()) ? selected_node->Name() : "NoName",
+        if (Pick(scene, x, y, &selected_node, &selected_node_index, &position)) {
+            /*for (int i = 0; i < scene->NNodes(); i++) {
+              R3SceneNode *node = scene->Node(i);
+              const char *name = (node->Name()) ? node->Name() : "-";
+              fprintf(fp, "%d %s\n", i+1, name);
+            }*/
+            printf("Selected %d %s    %g %g %g\n", selected_node_index, (selected_node->Name()) ? selected_node->Name() : "NoName",
             position.X(), position.Y(), position.Z());
         }
 #else
@@ -768,7 +776,7 @@ void GLUTKeyboard(unsigned char key, int x, int y)
            camera.XFOV(), camera.YFOV());
     
     char filename1[50];
-    sprintf(filename1, "obs/cam_%s", selected_node->Name());
+    sprintf(filename1, "obs/cam_%d-%s", selected_node_index, selected_node->Name());
     FILE *fp1 = fopen(filename1, "a");
     if (!fp1) {
       printf("Unable to open cameras file %s\n", filename1);
@@ -787,7 +795,7 @@ void GLUTKeyboard(unsigned char key, int x, int y)
     }
     
     
-    printf("Saving observation of %s\n", selected_node->Name());
+    printf("Saving observation of %d-%s\n", selected_node_index, selected_node->Name());
     const R3CoordSystem& cs = camera.CoordSystem();
     R4Matrix matrix = cs.Matrix();
     printf("Extrinsics: %g %g %g %g   %g %g %g %g  %g %g %g %g\n",
@@ -804,7 +812,7 @@ void GLUTKeyboard(unsigned char key, int x, int y)
     printf("Intrinsics: %g 0 %g   0 %g %g  0 0 1\n", fx, cx, fy, cy);
     
     char filename[50];
-    sprintf(filename, "obs/extr_%s", selected_node->Name());
+    sprintf(filename, "obs/extr_%d-%s", selected_node_index, selected_node->Name());
     FILE *fp = fopen(filename, "a");
     if (!fp) {
       printf("Unable to open observations file %s\n", filename);
@@ -815,11 +823,19 @@ void GLUTKeyboard(unsigned char key, int x, int y)
         matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3], 
         matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3], 
         matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3]);
-      fprintf(fp, "%g 0 %g   0 %g %g  0 0 1\n", fx, cx, fy, cy);
       fclose(fp);
     }
     
-    
+    char filename2[50];
+    sprintf(filename2, "obs/intr_%d-%s", selected_node_index, selected_node->Name());
+    FILE *fp2 = fopen(filename2, "a");
+    if (!fp2) {
+      printf("Unable to open intrinsics file %s\n", filename2);
+    }
+    else {
+      fprintf(fp2, "%g 0 %g   0 %g %g  0 0 1\n", fx, cx, fy, cy);
+      fclose(fp2);
+    }
     
     break; }
     
@@ -912,6 +928,56 @@ CreateBirdsEyeViewer(const R3Scene *scene)
 }
 
 
+/*static R3Scene *
+ReadScene2(char *filename)
+{
+  // Start statistics
+  RNTime start_time;
+  start_time.Read();
+
+  // Allocate scene
+  R3Scene *scene = new R3Scene();
+  if (!scene) {
+    fprintf(stderr, "Unable to allocate scene for %s\n", filename);
+    return NULL;
+  }
+
+  // Read scene from file
+  if (!scene->ReadFile(filename)) {
+    delete scene;
+    return NULL;
+  }
+
+  // Remove references and transformations
+  scene->RemoveReferences();
+  scene->RemoveTransformations();
+
+  // Print statistics
+  if (print_verbose) {
+    printf("Read scene from %s ...\n", filename);
+    printf("  Time = %.2f seconds\n", start_time.Elapsed());
+    printf("  # Nodes = %d\n", scene->NNodes());
+    printf("  # Lights = %d\n", scene->NLights());
+    printf("  # Materials = %d\n", scene->NMaterials());
+    printf("  # Brdfs = %d\n", scene->NBrdfs());
+    printf("  # Textures = %d\n", scene->NTextures());
+    printf("  # Referenced models = %d\n", scene->NReferencedScenes());
+    fflush(stdout);
+  }
+  
+  printf("====!!!!!!!!!!!!================");
+  for (int i = 0; i < scene->NNodes(); i++) {
+    R3SceneNode *node = scene->Node(i);
+    const char *name = (node->Name()) ? node->Name() : "-";
+    printf("Writing %d %s\n", i+1, name);
+  }
+  printf("====!!!!!!!!!!!!================");
+  
+  // Return scene
+  return scene;
+}*/
+
+
 
 static R3Scene *
 ReadScene(char *filename)
@@ -932,11 +998,16 @@ ReadScene(char *filename)
     delete scene;
     return NULL;
   }
-
+  
+  // Remove references and transformations
+  //scene->RemoveReferences();
+  //scene->RemoveTransformations();
+  
   // Process scene
   if (remove_references) scene->RemoveReferences();
   if (remove_transformations) scene->RemoveTransformations();
   if (remove_hierarchy) scene->RemoveHierarchy();
+  
   if (max_vertex_spacing > 0) scene->SubdivideTriangles(max_vertex_spacing);
 
   // Print statistics
@@ -951,7 +1022,7 @@ ReadScene(char *filename)
     printf("  # Referenced scenes = %d\n", scene->NReferencedScenes());
     fflush(stdout);
   }
-
+  
   // Return scene
   return scene;
 }
@@ -1126,11 +1197,16 @@ int main(int argc, char **argv)
 
   // Initialize GLUT
   GLUTInit(&argc, argv);
-
+  
+  
+  // Try another way to read scene
+  //ReadScene2(input_scene_name);
+    
   // Read scene
   scene = ReadScene(input_scene_name);
   if (!scene) exit(-1);
-
+  
+  
   // Read cameras
   if (input_cameras_name) {
     cameras = ReadCameras(input_cameras_name);

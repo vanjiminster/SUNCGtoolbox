@@ -152,7 +152,14 @@ ReadScene(char *filename)
     printf("  # Referenced models = %d\n", scene->NReferencedScenes());
     fflush(stdout);
   }
-
+  
+  
+  for (int i = 0; i < scene->NNodes(); i++) {
+    R3SceneNode *node = scene->Node(i);
+    const char *name = (node->Name()) ? node->Name() : "-";
+    printf("Writing %d %s\n", i+1, name);
+  }
+  
   // Return scene
   return scene;
 }
@@ -419,6 +426,7 @@ WriteNodeNames(const char *filename)
   for (int i = 0; i < scene->NNodes(); i++) {
     R3SceneNode *node = scene->Node(i);
     const char *name = (node->Name()) ? node->Name() : "-";
+    printf("Writing %d %s\n", i+1, name);
     fprintf(fp, "%d %s\n", i+1, name);
   }
 
@@ -1583,7 +1591,9 @@ int main(int argc, char **argv)
 
   // Read scene
   if (!ReadScene(input_scene_filename)) exit(-1);
-
+  
+  return 0;
+  
   // Read cameras
   if (input_cameras_filename) {
     if (!ReadCameras(input_cameras_filename)) exit(-1);
